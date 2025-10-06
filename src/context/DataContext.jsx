@@ -34,9 +34,9 @@ export const DataProvider = ({ children }) => {
     const fetchData = async () => {
       try {
         const [usersRes, productsRes, shiftsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/users`),
-          fetch(`${API_BASE_URL}/products`),
-          fetch(`${API_BASE_URL}/shifts`)
+          fetch(`${API_BASE_URL}/api/users`),
+          fetch(`${API_BASE_URL}/api/products`),
+          fetch(`${API_BASE_URL}/api/shifts`)
         ])
         const users = usersRes.ok ? await usersRes.json() : []
         const products = productsRes.ok ? await productsRes.json() : []
@@ -58,7 +58,7 @@ export const DataProvider = ({ children }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ nombre, password }),
+        body: JSON.stringify({ username: nombre, password }),
       })
       if (response.ok) {
         const user = await response.json()
@@ -78,7 +78,7 @@ export const DataProvider = ({ children }) => {
   const saveUser = async (user) => {
     try {
       if (user.id) {
-        const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(user),
@@ -88,7 +88,7 @@ export const DataProvider = ({ children }) => {
           setData(prev => ({ ...prev, users: prev.users.map(u => u.id === user.id ? updatedUser : u) }))
         }
       } else {
-        const response = await fetch(`${API_BASE_URL}/users`, {
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(user),
@@ -105,7 +105,7 @@ export const DataProvider = ({ children }) => {
 
   const deleteUser = async (id) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
         method: 'DELETE',
       })
       if (response.ok) {
@@ -120,7 +120,7 @@ export const DataProvider = ({ children }) => {
   const saveProduct = async (product) => {
     try {
       if (product.id) {
-        const response = await fetch(`${API_BASE_URL}/products/${product.id}`, {
+        const response = await fetch(`${API_BASE_URL}/api/products/${product.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...product, precio: Number(product.precio), stock: Number(product.stock) }),
@@ -133,7 +133,7 @@ export const DataProvider = ({ children }) => {
           }))
         }
       } else {
-        const response = await fetch(`${API_BASE_URL}/products`, {
+        const response = await fetch(`${API_BASE_URL}/api/products`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...product, precio: Number(product.precio), stock: Number(product.stock) }),
@@ -150,7 +150,7 @@ export const DataProvider = ({ children }) => {
 
   const deleteProduct = async (id) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/products/${id}`, {
         method: 'DELETE',
       })
       if (response.ok) {
@@ -166,7 +166,7 @@ export const DataProvider = ({ children }) => {
       const product = data.products.find(p => p.id === productId)
       if (product) {
         const updatedStock = product.stock - cantidad
-        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/products/${productId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...product, stock: updatedStock }),
@@ -183,7 +183,7 @@ export const DataProvider = ({ children }) => {
 
   const addShift = async (shift) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/shifts`, {
+      const response = await fetch(`${API_BASE_URL}/api/shifts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shift),
@@ -199,7 +199,7 @@ export const DataProvider = ({ children }) => {
 
   const updateShift = async (shift) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/shifts/${shift.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/shifts/${shift.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shift),
