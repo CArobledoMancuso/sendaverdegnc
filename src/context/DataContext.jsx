@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react'
+const API_BASE_URL = 'https://sendaverdegncback.onrender.com'
 
 const DataContext = createContext()
 
@@ -17,14 +18,8 @@ const initialData = {
 }
 
 export const DataProvider = ({ children }) => {
-  const [data, setData] = useState(() => {
-    try {
-      const raw = localStorage.getItem('estacion-data')
-      return raw ? JSON.parse(raw) : initialData
-    } catch {
-      return initialData
-    }
-  })
+  const [data, setData] = useState(initialData)
+  const [loading, setLoading] = useState(true)
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -36,62 +31,186 @@ export const DataProvider = ({ children }) => {
   })
 
   useEffect(() => {
-    localStorage.setItem('estacion-data', JSON.stringify(data))
-  }, [data])
+    const fetchData = async () => {
+      try {
+        const [usersRes, productsRes, shiftsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/users`),
+          fetch(`${API_BASE_URL}/products`),
+          fetch(`${API_BASE_URL}/shifts`)
+        ])
+        const users = usersRes.ok ? await usersRes.json() : []
+        const products = productsRes.ok ? await productsRes.json() : []
+        const shifts = shiftsRes.ok ? await shiftsRes.json() : []
+        setData({ users, products, shifts, pricePerCubicMeter: 1500 })
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
-  useEffect(() => {
-    localStorage.setItem('estacion-currentUser', JSON.stringify(currentUser))
-  }, [currentUser])
-
-  const login = (nombre, password) => {
-    const user = data.users.find(u => u.nombre === nombre && u.password === password)
-    if (user) setCurrentUser(user)
-    return user
+  const login = async (nombre, password) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nombre, password }),
+      })
+      if (response.ok) {
+        const user = await response.json()
+        setCurrentUser(user)
+        return user
+      } else {
+        throw new Error('Login failed')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      return null
+    }
   }
 
   const logout = () => setCurrentUser(null)
 
-  const saveUser = (user) => {
-    if (user.id) {
-      setData(prev => ({ ...prev, users: prev.users.map(u => u.id === user.id ? user : u) }))
-    } else {
-      const newUser = { ...user, id: Date.now() }
-      setData(prev => ({ ...prev, users: [...prev.users, newUser] }))
+  const saveUser = async (user) => {
+    try {
+      if (user.id) {
+        const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(user),
+        })
+        if (response.ok) {
+          const updatedUser = await response.json()
+          setData(prev => ({ ...prev, users: prev.users.map(u => u.id === user.id ? updatedUser : u) }))
+        }
+      } else {
+        const response = await fetch(`${API_BASE_URL}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(user),
+        })
+        if (response.ok) {
+          const newUser = await response.json()
+          setData(prev => ({ ...prev, users: [...prev.users, newUser] }))
+        }
+      }
+    } catch (error) {
+      console.error('Error saving user:', error)
     }
   }
 
-  const deleteUser = (id) => {
-    setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== id) }))
-    if (currentUser?.id === id) setCurrentUser(null)
-  }
-
-  const saveProduct = (product) => {
-    if (product.id) {
-      setData(prev => ({
-        ...prev,
-        products: prev.products.map(p => p.id === product.id
-          ? { ...p, ...product, precio: Number(product.precio), stock: Number(product.stock) }
-          : p)
-      }))
-    } else {
-      const newP = { ...product, id: Date.now(), precio: Number(product.precio), stock: Number(product.stock) }
-      setData(prev => ({ ...prev, products: [...prev.products, newP] }))
+  const deleteUser = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${id}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        setData(prev => ({ ...prev, users: prev.users.filter(u => u.id !== id) }))
+        if (currentUser?.id === id) setCurrentUser(null)
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
     }
   }
 
-  const deleteProduct = (id) =>
-    setData(prev => ({ ...prev, products: prev.products.filter(p => p.id !== id) }))
-
-  const decreaseProductStock = (productId, cantidad) => {
-    setData(prev => ({ ...prev, products: prev.products.map(p => p.id === productId ? { ...p, stock: p.stock - cantidad } : p) }))
+  const saveProduct = async (product) => {
+    try {
+      if (product.id) {
+        const response = await fetch(`${API_BASE_URL}/products/${product.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...product, precio: Number(product.precio), stock: Number(product.stock) }),
+        })
+        if (response.ok) {
+          const updatedProduct = await response.json()
+          setData(prev => ({
+            ...prev,
+            products: prev.products.map(p => p.id === product.id ? updatedProduct : p)
+          }))
+        }
+      } else {
+        const response = await fetch(`${API_BASE_URL}/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...product, precio: Number(product.precio), stock: Number(product.stock) }),
+        })
+        if (response.ok) {
+          const newProduct = await response.json()
+          setData(prev => ({ ...prev, products: [...prev.products, newProduct] }))
+        }
+      }
+    } catch (error) {
+      console.error('Error saving product:', error)
+    }
   }
 
-  const addShift = (shift) => {
-    setData(prev => ({ ...prev, shifts: [...prev.shifts, shift] }))
+  const deleteProduct = async (id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
+        method: 'DELETE',
+      })
+      if (response.ok) {
+        setData(prev => ({ ...prev, products: prev.products.filter(p => p.id !== id) }))
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error)
+    }
   }
 
-  const updateShift = (shift) => {
-    setData(prev => ({ ...prev, shifts: prev.shifts.map(s => s.id === shift.id ? shift : s) }))
+  const decreaseProductStock = async (productId, cantidad) => {
+    try {
+      const product = data.products.find(p => p.id === productId)
+      if (product) {
+        const updatedStock = product.stock - cantidad
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...product, stock: updatedStock }),
+        })
+        if (response.ok) {
+          const updatedProduct = await response.json()
+          setData(prev => ({ ...prev, products: prev.products.map(p => p.id === productId ? updatedProduct : p) }))
+        }
+      }
+    } catch (error) {
+      console.error('Error decreasing product stock:', error)
+    }
+  }
+
+  const addShift = async (shift) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/shifts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shift),
+      })
+      if (response.ok) {
+        const newShift = await response.json()
+        setData(prev => ({ ...prev, shifts: [...prev.shifts, newShift] }))
+      }
+    } catch (error) {
+      console.error('Error adding shift:', error)
+    }
+  }
+
+  const updateShift = async (shift) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/shifts/${shift.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shift),
+      })
+      if (response.ok) {
+        const updatedShift = await response.json()
+        setData(prev => ({ ...prev, shifts: prev.shifts.map(s => s.id === shift.id ? updatedShift : s) }))
+      }
+    } catch (error) {
+      console.error('Error updating shift:', error)
+    }
   }
 
   return (
@@ -100,6 +219,7 @@ export const DataProvider = ({ children }) => {
       setData,
       currentUser,
       setCurrentUser,
+      loading,
       login,
       logout,
       saveUser,
